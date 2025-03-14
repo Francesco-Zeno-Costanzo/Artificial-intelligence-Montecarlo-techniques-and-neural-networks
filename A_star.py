@@ -1,5 +1,9 @@
+"""
+Code that implement A* search alghoritm
+"""
 import heapq
 import numpy as np
+
 
 class AStar:
 
