@@ -1,91 +1,46 @@
 """
-Code that implement sevarl alghoritms for searching
+Code that implement several alghoritms for searching
 """
-import random
 import numpy as np
-import networkx as nx
-import matplotlib.pyplot as plt
 
-random.seed(69420)
 
-def load_graph(file_path):
+def build_graph_from_grid(grid):
     '''
-    Function that read a file and create the associeted graph.
-    Each key in the dictionary is a node and the associated value
-    is another dictionary containing all the nodes linked to the
-    key node with its related infoion value.
-
+    Converts a grid into a graph representation.
+    
     Parameters
     ----------
-    file_path : str
-        path of the file with the data
+    grid : list
+        The grid we want to explore
     
     Returns
     -------
     graph : dict
-        graph in the form of a dictionary
+        grid saved as a graph
     '''
-    graph = {} # Dictionary that will contain the graph
+    if isinstance(grid, np.ndarray):
+        grid = grid.tolist()
 
-    with open(file_path, 'r') as f:
-        for l in f: # Read the file
-            city_a, city_b, p_cost = l.split(",")
-            # Remove case sensitive
-            city_a = city_a.lower()
-            city_b = city_b.lower()
+    rows, cols = len(grid), len(grid[0])
+    graph      = {}
+    
+    for r in range(rows):
+        for c in range(cols):
+            if grid[r][c] == 1:  # Assume 1 is a wall/obstacle
+                continue
+
+            neighbors = {}
+            for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                nr, nc = r + dr, c + dc
+                if 0 <= nr < rows and 0 <= nc < cols and grid[nr][nc] == 0:
+                    neighbors[(nr, nc)] = 1  # Assume uniform cost
             
-            # Create a node if we read a new element
-            if city_a not in graph:
-                graph[city_a] = {}
-            if city_b not in graph:
-                graph[city_b] = {}
-
-            # Create the "direct" link
-            graph[city_a][city_b] = int(p_cost)            
-            # Create the "inverse" link
-            graph[city_b][city_a] = int(p_cost)
+            graph[(r, c)] = neighbors
     
     return graph
 
 
-def generate_random_graph(num_nodes, num_edges):
-    '''
-    Generate a random weighted graph.
-
-    Parameters
-    ----------
-    num_nodes : int
-        Number of nodes in the graph.
-    num_edges : int
-        Number of edges (connections) between nodes.
-
-    Returns
-    -------
-    graph : dict
-        A dictionary representing the graph.
-    '''
-
-    min_weight = 1
-    max_weight = 10
-    nodes      = [f"node_{i}" for i in range(num_nodes)]
-    graph      = {node: {} for node in nodes}
-    edges      = set()
-
-    while len(edges) < num_edges:
-        # Choose randomly two nodes
-        a, b = random.sample(nodes, 2)
-
-        if (a, b) not in edges and (b, a) not in edges:
-            # If not exisit create the link
-            weight = random.randint(min_weight, max_weight)
-            graph[a][b] = weight
-            graph[b][a] = weight
-            edges.add((a, b))
-
-    return graph
-
-
-def Search(graph, src, dst, method='Breadth First', level=None):
+def Search(struct, src, dst, method='Breadth First', level=None):
     '''
     Function that implements search methods.
     The aviable metods are: 
@@ -95,11 +50,11 @@ def Search(graph, src, dst, method='Breadth First', level=None):
 
     Parameters
     ----------
-    graph : dict
+    struct : 2darray or dict
         dictionary created by load_graph function
-    src : str
+    src : tuple or str
         name of the source node
-    dst : str
+    dst : tuple or str
         name of the destination node
     method : str, optional, default 'Breadth First'
         method used for search, if Limited Depth is
@@ -112,12 +67,22 @@ def Search(graph, src, dst, method='Breadth First', level=None):
     -------
     path : list
         list of al node form src to dst
+    cost : float
+        cost of the entire path
     '''
-    # For case sensitive
-    src = src.lower()
-    dst = dst.lower()
+    graph = None
+    # If struct is a grid convert it to a graph
+    if isinstance(struct, (list, np.ndarray)):
+        graph = build_graph_from_grid(struct)
+    else :
+        # Otherwise struct is already a graph
+        graph = struct
+        # and src and dst will be string
+        # instead of tuple so for case-sensitive:
+        src = src.lower()
+        dst = dst.lower()
 
-    # Usefull variables to switch methods
+    # Useful variables to switch methods
     idx   = 0 if method == 'Breadth First' else -1
     level = np.inf if method != "Limited Depth" else level
     if method == 'Limited Depth' and level is None:
@@ -127,8 +92,8 @@ def Search(graph, src, dst, method='Breadth First', level=None):
     info    = [(src, [src], 0)]
     visited = {src}
 
-    while info: # Until i can search
-        # Unpack the informations
+    while info: # Until we can search
+        # Unpack the information
         (node, path, cost) = info.pop(idx)
 
         # For all nearby nodes
@@ -136,10 +101,10 @@ def Search(graph, src, dst, method='Breadth First', level=None):
 
             # If I find the destination I've finished
             if temp == dst:
-                return path + [temp]
+                return path + [temp], cost + graph[node][temp]
             
             else:
-                # Oterwise, if temp is a new node
+                # Otherwise, if temp is a new node
                 if temp not in visited:
                     # Add temp to visited nodes, to avoid waste of time
                     visited.add(temp)
@@ -148,23 +113,25 @@ def Search(graph, src, dst, method='Breadth First', level=None):
                         info.append((temp, path + [temp], cost + graph[node][temp]))
 
 
-def iterative_deepening_search(graph, src, dst):
+def iterative_deepening_search(struct, src, dst):
     '''
     Function that implements iterative deepening search method.
 
     Parameters
     ----------
-    graph : dict
+    struct : 2darray or dict
         dictionary created by load_graph function
-    src : str
+    src : tuple or str
         name of the source node
-    dst : str
+    dst : tuple or str
         name of the destination node
     
     Returns
     -------
     path : list
         list of al node form src to dst
+    cost : float
+        cost of the entire path
     '''
     
     level = 0  # Depth level
@@ -172,46 +139,20 @@ def iterative_deepening_search(graph, src, dst):
     while check == 1:
 
         level += 1  # Increase the depth
-        path   = Search(graph, src, dst, method='Limited Depth', level=level)
-
-        if path is None:
+        try : 
+            path, cost = Search(struct, src, dst, method='Limited Depth', level=level)
+        except TypeError:
             # If path is None level is to small we need to increase it
             continue # Restart the loop
         else :
             # Otherwise we have our result and we can stop
             check = 0
-    return path
-
-
-def plot_graph(graph):
-    '''
-    Plot a graph using NetworkX and Matplotlib.
-
-    Parameters
-    ----------
-    graph : dict
-        Graph in dictionary format.
-    '''
-    G = nx.Graph()
-
-    for node, edges in graph.items():
-        for neighbor, weight in edges.items():
-            G.add_edge(node, neighbor, weight=weight)
-
-    pos    = nx.spring_layout(G, seed=69420)  # Layout for visualization
-    labels = nx.get_edge_attributes(G, 'weight')
-
-    plt.figure(1)
-    nx.draw(G, pos, with_labels=True, node_size=1000,
-            node_color="lightblue", edge_color="gray", font_size=10)
-    
-    nx.draw_networkx_edge_labels(G, pos, edge_labels=labels, font_size=10)
-
-    plt.title("Graph Representation")
-    plt.show()
+    return path, cost
 
 
 if __name__ == "__main__":
+
+    from utils import *
 
     graph = load_graph('data.txt')    
     
