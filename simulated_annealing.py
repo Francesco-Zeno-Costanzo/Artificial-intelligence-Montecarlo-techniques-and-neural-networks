@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 np.random.seed(69420)
 
 
-def simulated_annealing(func, bounds, step=0.5, tol=1e-8, temp=10, cooling_func=None):
+def simulated_annealing(func, bounds, step=0.5, tol=1e-8, temp=10, iter_cool=100, cooling_func=None):
     '''
     Find the minimum of a function using Simulated Annealing.
 
@@ -21,6 +21,8 @@ def simulated_annealing(func, bounds, step=0.5, tol=1e-8, temp=10, cooling_func=
         The required tollerance for the minimum.
     temp : float, optional, default 10
         The initial temperature.
+    iter_cool : int, optional, defualt 100
+        number of intereation before a a cooling step
     cooling_func : None or callable, optional, default None
         The cooling function to use. If None, the default
         (T_{i+1} = rate*T) cooling function is used.
@@ -71,7 +73,8 @@ def simulated_annealing(func, bounds, step=0.5, tol=1e-8, temp=10, cooling_func=
                 global_best_value = new_value
         
         # Decrease the temperature
-        temp = cooling_func(temp, count)
+        if count % iter_cool == 0:
+            temp = cooling_func(temp, count)
         
         if global_best_value < tol or temp < tol:
             break
@@ -101,7 +104,7 @@ def F(x, y):
 #================= Run the algorithm =================
 
 bounds = [(-5.0, 5.0) for _ in range(2)]
-best_x, best_value, nc = simulated_annealing(F, bounds, cooling_func=logarithmic_cooling, step=0.5)
+best_x, best_value, nc = simulated_annealing(F, bounds, step=0.5, cooling_func=inverse_cooling)
 
 print(f"Minimum in: x={best_x}, value={best_value:.5f}, with {nc} iterations")
 
